@@ -1,5 +1,9 @@
 package glob
 
+import (
+  "strings"
+)
+
 const (
 	slash     = '/'
 	backslash = '\\'
@@ -24,6 +28,6 @@ func Match(dir, pattern string) bool {
 	return false
 }
 
-func glob(dir, parts []string) ([]string, error) {
+func glob(dir string, parts []string) ([]string, error) {
 	return nil, nil
 }
