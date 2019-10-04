@@ -1,4 +1,4 @@
-package main
+package glob
 
 import (
 	"testing"
@@ -19,8 +19,8 @@ func TestMatch(t *testing.T) {
 	}
 	for i, d := range data {
 		got := Match(d.Line, d.Pattern)
-		if got != want {
-			t.Errorf("%d) match failed: %s (%s)", d.Line, d.Pattern)
+		if got != d.Want {
+			t.Errorf("%d) match failed: %s (%s)", i, d.Line, d.Pattern)
 		}
 	}
 }
