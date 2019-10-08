@@ -1,7 +1,6 @@
 package glob
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -96,8 +95,7 @@ func glob(queue chan<- string, dir string, pattern []string) {
 
 func globAny(queue chan<- string, dir string, pattern []string) {
 	if pattern[1] == branch {
-		globAny(queue, dir, pattern[1:])
-		return
+		pattern = pattern[1:]
 	}
 	for i := range readDir(dir) {
 		var ix int
