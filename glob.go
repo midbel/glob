@@ -119,15 +119,14 @@ func match(str, pat string) bool {
 		return true
 	}
 	var i, j int
-	// for ; i < len(pat) && j < len(str); i++ {
 	for ; i < len(pat); i++ {
-		switch char := pat[i]; {
-		case char == star:
+		switch char := pat[i]; char {
+		case star:
 			// multiple stars is the same as one star
 			for i = i + 1; i < len(pat) && pat[i] == char; i++ {
 			}
-			// trailing star matchs rest of text
-			if i >= len(pat) {
+			// trailing star matchs rest of text - star matchs also empty string
+			if i >= len(pat) || str == "" {
 				return true
 			}
 			for j < len(str) {
@@ -136,9 +135,14 @@ func match(str, pat string) bool {
 				}
 				j++
 			}
-		case char == mark || (j < len(str) && char == str[j]):
+		case mark:
 			// default
 		default:
+			if j >= len(str) || pat[i] != str[j] {
+				return false
+			}
+		}
+		if j >= len(str) {
 			return false
 		}
 		j++
