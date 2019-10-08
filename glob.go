@@ -1,6 +1,7 @@
 package glob
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -161,7 +162,17 @@ func readDir(dir string) <-chan os.FileInfo {
 		for {
 			is, err := r.Readdir(100)
 			for i := range is {
-				queue <- is[i]
+				i := is[i]
+				if set := i.Mode() & os.ModeSymlink; set != 0 {
+					f, err := filepath.EvalSymlinks(filepath.Join(dir, i.Name()))
+					if err != nil {
+						continue
+					}
+					if i, err = os.Stat(f); err != nil {
+						continue
+					}
+				}
+				queue <- i
 			}
 			if len(is) == 0 || err == io.EOF {
 				break
