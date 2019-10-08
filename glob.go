@@ -2,6 +2,7 @@ package glob
 
 import (
 	"io"
+	// "fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,7 +50,8 @@ func New(dir, pattern string) *Globber {
 		if dir == "" {
 			dir = "."
 		}
-		glob(queue, dir, strings.FieldsFunc(pattern, splitPattern))
+		ps := cleanPattern(strings.FieldsFunc(pattern, splitPattern))
+		glob(queue, dir, ps)
 	}()
 	g := Globber{queue: queue}
 	return &g
@@ -183,6 +185,19 @@ func readDir(dir string) <-chan os.FileInfo {
 		}
 	}()
 	return queue
+}
+
+func cleanPattern(pattern []string) []string {
+	// just remove consecutive **
+	for i := 0; ; i++ {
+		if i >= len(pattern) {
+			break
+		}
+		if j := i-1; j >= 0 && pattern[i] == branch && pattern[j] == branch {
+			pattern, i = append(pattern[:i], pattern[i+1:]...), j
+		}
+	}
+	return pattern
 }
 
 func splitPattern(r rune) bool {
