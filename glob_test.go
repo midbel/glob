@@ -20,6 +20,8 @@ func TestMatch(t *testing.T) {
 		{Line: "foo", Pattern: "f?o", Want: true},
 		{Line: "foobar", Pattern: "???", Want: false},
 		{Line: "foobar", Pattern: "???bar", Want: true},
+		{Line: "foobar", Pattern: "*.*", Want: false},
+		{Line: "foo.bar", Pattern: "*.*", Want: true},
 		{Line: "src/github.com/midbel/glob/glob.go", Pattern: "src/**/midbel/*/*go", Want: true},
 		{Line: "src/github.com/midbel/glob/glob.go", Pattern: "**/*go", Want: true},
 		{Line: "src/github.com/midbel/glob/glob.md", Pattern: "src/**/midbel/*/*go", Want: false},
