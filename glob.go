@@ -148,20 +148,14 @@ func match(str, pat string) bool {
 				i++
 			}
 			var ok bool
-			for pat[i] != rsquare {
-				ok = str[j] == pat[i]
-				i++
-				if ok {
+			for ; pat[i] != rsquare; i++ {
+				if ok = str[j] == pat[i]; ok {
 					break
 				}
 			}
-			for pat[i] != rsquare {
-				i++
+			for ; pat[i] != rsquare; i++ {
 			}
-			if reverse {
-				ok = !ok
-			}
-			if !ok {
+			if ok == reverse {
 				return false
 			}
 		default:
