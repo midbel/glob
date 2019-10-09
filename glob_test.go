@@ -26,6 +26,9 @@ func TestMatch(t *testing.T) {
 		{Line: "src/github.com/midbel/glob/glob.go", Pattern: "**/*go", Want: true},
 		{Line: "src/github.com/midbel/glob/glob.md", Pattern: "src/**/midbel/*/*go", Want: false},
 		{Line: "src/github.com/midbel/glob/glob.md", Pattern: "**/*go", Want: false},
+		{Line: "foobar", Pattern: "foo[abc]?r", Want: true},
+		{Line: "foobar", Pattern: "foo[^abc]?r", Want: false},
+		{Line: "foobar", Pattern: "foo[^xyz]?r", Want: true},
 	}
 	for i, d := range data {
 		got := Match(d.Line, d.Pattern)

@@ -1,8 +1,8 @@
 package glob
 
 import (
+	"fmt"
 	"io"
-	// "fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +14,11 @@ const (
 	slash     = '/'
 	backslash = '\\'
 
-	star = '*'
-	mark = '?'
+	star    = '*'
+	mark    = '?'
+	lsquare = '['
+	rsquare = ']'
+	caret   = '^'
 )
 
 func Match(dir, pattern string) bool {
@@ -87,19 +90,17 @@ func glob(queue chan<- string, dir string, pattern []string) {
 		if ok := match(i.Name(), pattern[0]); !ok {
 			continue
 		}
-		if file := filepath.Join(dir, i.Name()); i.IsDir() {
+		file := filepath.Join(dir, i.Name())
+		if i.IsDir() {
 			glob(queue, file, pattern[1:])
-		} else {
+		}
+		if len(pattern) <= 1 {
 			queue <- file
 		}
 	}
 }
 
 func globAny(queue chan<- string, dir string, pattern []string) {
-	if pattern[1] == branch {
-		globAny(queue, dir, pattern[1:])
-		return
-	}
 	for i := range readDir(dir) {
 		var ix int
 		switch ok, idir := match(i.Name(), pattern[1]), i.IsDir(); {
@@ -113,6 +114,10 @@ func globAny(queue chan<- string, dir string, pattern []string) {
 		}
 		glob(queue, filepath.Join(dir, i.Name()), pattern[ix:])
 	}
+}
+
+func empty() {
+	fmt.Println()
 }
 
 func match(str, pat string) bool {
@@ -138,7 +143,30 @@ func match(str, pat string) bool {
 				j++
 			}
 		case mark:
-			// default
+			// match a single character
+		case lsquare:
+			i++
+			reverse := pat[i] == caret
+			if reverse {
+				i++
+			}
+			var ok bool
+			for pat[i] != rsquare {
+				ok = str[j] == pat[i]
+				i++
+				if ok {
+					break
+				}
+			}
+			for pat[i] != rsquare {
+				i++
+			}
+			if reverse {
+				ok = !ok
+			}
+			if !ok {
+				return false
+			}
 		default:
 			if j >= len(str) || pat[i] != str[j] {
 				return false
@@ -193,7 +221,7 @@ func cleanPattern(pattern []string) []string {
 		if i >= len(pattern) {
 			break
 		}
-		if j := i-1; j >= 0 && pattern[i] == branch && pattern[j] == branch {
+		if j := i - 1; j >= 0 && pattern[i] == branch && pattern[j] == branch {
 			pattern, i = append(pattern[:i], pattern[i+1:]...), j
 		}
 	}
