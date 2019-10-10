@@ -129,19 +129,12 @@ func match(str, pat string) bool {
 	for ; i < len(pat); i++ {
 		switch char := pat[i]; char {
 		case star:
-			// multiple stars is the same as one star
-			for i = i + 1; i < len(pat) && pat[i] == char; i++ {
+			ni, nj, ok := starMatch(str[j:], pat[i:])
+			if ok {
+				return ok
 			}
-			// trailing star matchs rest of text - star matchs also empty string
-			if i >= len(pat) || str == "" {
-				return true
-			}
-			for j < len(str) {
-				if ok := match(str[j:], pat[i:]); ok {
-					return ok
-				}
-				j++
-			}
+			i += ni
+			j += nj
 		case mark:
 			// match a single character
 		case lsquare:
@@ -162,6 +155,28 @@ func match(str, pat string) bool {
 	}
 	// match when all characters of pattern and text have been read
 	return i == len(pat) && j == len(str)
+}
+
+func starMatch(str, pat string) (int, int, bool) {
+	// multiple stars is the same as one star
+	var (
+		i, j int
+		ok   bool
+	)
+	for i = 1; i < len(pat) && pat[i] == star; i++ {
+	}
+	// trailing star matchs rest of text
+	// star matchs also empty string
+	if i >= len(pat) || str == "" {
+		return i, len(str) + 1, true
+	}
+	for j < len(str) {
+		if ok = match(str[j:], pat[i:]); ok {
+			break
+		}
+		j++
+	}
+	return i, j, ok
 }
 
 func charsetMatch(char byte, pat string) (int, bool) {
