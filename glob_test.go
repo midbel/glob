@@ -29,6 +29,11 @@ func TestMatch(t *testing.T) {
 		{Line: "foobar", Pattern: "foo[abc]?r", Want: true},
 		{Line: "foobar", Pattern: "foo[^abc]?r", Want: false},
 		{Line: "foobar", Pattern: "foo[^xyz]?r", Want: true},
+		{Line: "foobar", Pattern: "[a-z]oobar", Want: true},
+		{Line: "foobar", Pattern: "[A-Z]oobar", Want: false},
+		{Line: "foobar", Pattern: "f[az-]obar", Want: false},
+		{Line: "foo-bar", Pattern: "foo[a-z-]bar", Want: true},
+		{Line: "foo-bar", Pattern: "foo[^a-z-]bar", Want: false},
 	}
 	for i, d := range data {
 		got := Match(d.Line, d.Pattern)

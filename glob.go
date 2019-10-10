@@ -13,6 +13,7 @@ const (
 	slash     = '/'
 	backslash = '\\'
 
+	dash    = '-'
 	star    = '*'
 	mark    = '?'
 	lsquare = '['
@@ -144,22 +145,11 @@ func match(str, pat string) bool {
 		case mark:
 			// match a single character
 		case lsquare:
-			i++
-			reverse := pat[i] == caret
-			if reverse {
-				i++
-			}
-			var ok bool
-			for ; pat[i] != rsquare; i++ {
-				if ok = str[j] == pat[i]; ok {
-					break
-				}
-			}
-			for ; pat[i] != rsquare; i++ {
-			}
-			if ok == reverse {
+			n, ok := charsetMatch(str[j], pat[i+1:])
+			if !ok {
 				return false
 			}
+			i += n + 1
 		default:
 			if j >= len(str) || pat[i] != str[j] {
 				return false
@@ -172,6 +162,42 @@ func match(str, pat string) bool {
 	}
 	// match when all characters of pattern and text have been read
 	return i == len(pat) && j == len(str)
+}
+
+func charsetMatch(char byte, pat string) (int, bool) {
+	var (
+		i     int
+		match bool
+		neg   = pat[0] == caret
+	)
+	if neg {
+		i++
+	}
+	for ; pat[i] != rsquare; i++ {
+		if pat[i] == dash {
+			if p, n := pat[i-1], pat[i+1]; isRange(p, n) && char >= p && char <= n {
+				match = true
+				break
+			}
+		}
+		if match = char == pat[i]; match {
+			break
+		}
+	}
+	for ; pat[i] != rsquare; i++ {
+	}
+	if neg {
+		match = !match
+	}
+	return i, match
+}
+
+func isRange(prev, next byte) bool {
+	return prev < next && acceptRange(prev) && acceptRange(next)
+}
+
+func acceptRange(b byte) bool {
+	return (b >= 'a' || b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
 func readDir(dir string) <-chan os.FileInfo {
