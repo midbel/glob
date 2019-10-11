@@ -1,6 +1,7 @@
 package glob
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -20,6 +21,10 @@ const (
 	rsquare = ']'
 	caret   = '^'
 )
+
+func noop() {
+	fmt.Println()
+}
 
 func Match(dir, pattern string) bool {
 	return match(dir, pattern)
@@ -72,10 +77,12 @@ func glob(queue chan<- string, dir string, pattern []string) {
 	if len(pattern) == 0 {
 		return
 	}
+
 	if pattern[0] == branch {
 		globAny(queue, dir, pattern)
 		return
 	}
+
 	for i := range readDir(dir) {
 		if ok := match(i.Name(), pattern[0]); !ok {
 			continue
@@ -91,7 +98,7 @@ func glob(queue chan<- string, dir string, pattern []string) {
 }
 
 func globAny(queue chan<- string, dir string, pattern []string) {
-	if pattern[0] == branch {
+	if pattern[0] == branch && len(pattern) == 1 {
 		for i := range readDir(dir) {
 			file := filepath.Join(dir, i.Name())
 			if i.IsDir() {
@@ -101,17 +108,18 @@ func globAny(queue chan<- string, dir string, pattern []string) {
 		}
 		return
 	}
-	pattern = pattern[1:]
+
+	pat := pattern[1:]
 	for i := range readDir(dir) {
-		ok := match(i.Name(), pattern[0])
-		if i.Mode().IsRegular() && ok && len(pattern) == 1 {
+		ok := match(i.Name(), pat[0])
+		if i.Mode().IsRegular() && ok && len(pat) == 1 {
 			queue <- filepath.Join(dir, i.Name())
 			continue
 		}
 		if i.IsDir() {
 			if file := filepath.Join(dir, i.Name()); ok {
-				glob(queue, file, pattern[1:])
-				if len(pattern) <= 1 {
+				glob(queue, file, pat)
+				if len(pat) <= 1 {
 					queue <- file
 				}
 			} else {
