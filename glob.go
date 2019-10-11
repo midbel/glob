@@ -73,7 +73,7 @@ func glob(queue chan<- string, dir string, pattern []string) {
 		return
 	}
 	if pattern[0] == branch {
-		globAny(queue, dir, pattern[1:])
+		globAny(queue, dir, pattern)
 		return
 	}
 	for i := range readDir(dir) {
@@ -91,7 +91,7 @@ func glob(queue chan<- string, dir string, pattern []string) {
 }
 
 func globAny(queue chan<- string, dir string, pattern []string) {
-	if len(pattern) == 1 {
+	if pattern[0] == branch {
 		for i := range readDir(dir) {
 			file := filepath.Join(dir, i.Name())
 			if i.IsDir() {
@@ -101,6 +101,7 @@ func globAny(queue chan<- string, dir string, pattern []string) {
 		}
 		return
 	}
+	pattern = pattern[1:]
 	for i := range readDir(dir) {
 		ok := match(i.Name(), pattern[0])
 		if i.Mode().IsRegular() && ok && len(pattern) == 1 {
