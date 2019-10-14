@@ -118,7 +118,7 @@ func globAny(queue chan<- string, dir string, pattern []string) {
 		}
 		if i.IsDir() {
 			if file := filepath.Join(dir, i.Name()); ok {
-				glob(queue, file, pat)
+				glob(queue, file, pat[1:])
 				if len(pat) <= 1 {
 					queue <- file
 				}
