@@ -34,6 +34,8 @@ func TestMatch(t *testing.T) {
 		{Line: "foobar", Pattern: "f[az-]obar", Want: false},
 		{Line: "foo-bar", Pattern: "foo[a-z-]bar", Want: true},
 		{Line: "foo-bar", Pattern: "foo[^a-z-]bar", Want: false},
+		{Line: "GMT287/S_FOO_BAR_19_287_00_43", Pattern: "GMT???/S_*[0-9][0-9]", Want: true},
+		{Line: "GMT287/S_FOO_BAR_19_287_00_43.DAT", Pattern: "GMT???/S_*[0-9][0-9]", Want: false},
 	}
 	for i, d := range data {
 		got := Match(d.Line, d.Pattern)

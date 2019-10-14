@@ -147,6 +147,9 @@ func match(str, pat string) bool {
 		case mark:
 			// match a single character
 		case lsquare:
+			if j >= len(str) {
+				return false
+			}
 			n, ok := charsetMatch(str[j], pat[i+1:])
 			if !ok {
 				return false
@@ -162,7 +165,7 @@ func match(str, pat string) bool {
 		}
 		j++
 	}
-	// match when all characters of pattern and text have been read
+	// we have a match when all characters of pattern and text have been read
 	return i == len(pat) && j == len(str)
 }
 
