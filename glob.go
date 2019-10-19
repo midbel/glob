@@ -147,26 +147,26 @@ func match(str, pat string) bool {
 		case mark:
 			// match a single character
 		case lsquare:
-			if j >= len(str) {
-				return false
-			}
 			n, ok := charsetMatch(str[j], pat[i+1:])
 			if !ok {
 				return false
 			}
 			i += n + 1
 		default:
-			if j >= len(str) || pat[i] != str[j] {
+			if char == backslash {
+				i++
+			}
+			if pat[i] != str[j] {
 				return false
 			}
 		}
 		if j >= len(str) {
-			return false
+			break
 		}
 		j++
 	}
 	// we have a match when all characters of pattern and text have been read
-	return i == len(pat) && j == len(str)
+	return i == len(pat) && j >= len(str)
 }
 
 func starMatch(str, pat string) (int, int, bool) {
