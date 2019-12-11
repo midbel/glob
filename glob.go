@@ -19,7 +19,7 @@ const (
 	mark    = '?'
 	lsquare = '['
 	rsquare = ']'
-	caret   = '^'
+	bang    = '!'
 )
 
 func noop() {
@@ -195,11 +195,16 @@ func charsetMatch(char byte, pat string) (int, bool) {
 	var (
 		i     int
 		match bool
-		neg   = pat[0] == caret
+		neg   = pat[0] == bang
 	)
 	if neg {
 		i++
 	}
+	// if pat[i] == rsquare {
+	// 	if j := i+1; j < len(pat) {
+	//
+	// 	}
+	// }
 	for ; pat[i] != rsquare; i++ {
 		if pat[i] == dash {
 			if p, n := pat[i-1], pat[i+1]; isRange(p, n) && char >= p && char <= n {
