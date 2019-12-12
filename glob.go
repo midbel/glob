@@ -12,13 +12,21 @@ const branch = "**"
 const (
 	slash     = '/'
 	backslash = '\\'
-	dash    = '-'
-	star    = '*'
-	mark    = '?'
-	lsquare = '['
-	rsquare = ']'
-	bang    = '!'
-	caret   = '^'
+	dash      = '-'
+	star      = '*'
+	mark      = '?'
+	lsquare   = '['
+	rsquare   = ']'
+	bang      = '!'
+	caret     = '^'
+	lparen    = '('
+	rparen    = ')'
+	pipe      = '|'
+	arobase   = '@'
+	plus      = '+'
+	newline   = '\n'
+	tab       = '\t'
+	space     = ' '
 )
 
 func Match(dir, pattern string) bool {

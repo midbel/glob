@@ -1,8 +1,8 @@
 package glob
 
 import (
-  "fmt"
-  "strings"
+	"fmt"
+	"strings"
 )
 
 type Matcher interface {
@@ -136,4 +136,47 @@ func (a any) Match(str string) bool {
 
 func (a any) String() string {
 	return fmt.Sprintf("any(%s)", a.Matcher)
+}
+
+func Debug(m Matcher, level int) {
+	indent := strings.Repeat(" ", (level * 2))
+	switch m := m.(type) {
+	case list:
+		fmt.Printf("%spath(\n", indent)
+		for i := range m {
+			Debug(m[i], level+1)
+		}
+		fmt.Printf("%s)\n", indent)
+	case group:
+		fmt.Printf("%sgroup(\n", indent)
+		for i := range m.ms {
+			Debug(m.ms[i], level+1)
+		}
+		fmt.Printf("%s)\n", indent)
+	case simple:
+		fmt.Printf("%s%s\n", indent, m.String())
+	case not:
+		fmt.Printf("%snot(\n", indent)
+		Debug(m.Matcher, level+1)
+		fmt.Printf("%s)\n", indent)
+	case multiple:
+		fmt.Printf("%smultiple(\n", indent)
+		for i := range m {
+			Debug(m[i], level+1)
+		}
+		fmt.Printf("%s)\n", indent)
+	case any:
+		var k rune = bang
+		switch {
+		case m.min == 0 && m.max == 0:
+			k = star
+		case m.min == 0 && m.max == 1:
+			k = mark
+		case m.min == 1 && m.max == 0:
+			k = plus
+		}
+		fmt.Printf("%sany%c(\n", indent, k)
+		Debug(m.Matcher, level+1)
+		fmt.Printf("%s)\n", indent)
+	}
 }
