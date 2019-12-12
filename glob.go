@@ -1,7 +1,6 @@
 package glob
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,18 +12,14 @@ const branch = "**"
 const (
 	slash     = '/'
 	backslash = '\\'
-
 	dash    = '-'
 	star    = '*'
 	mark    = '?'
 	lsquare = '['
 	rsquare = ']'
 	bang    = '!'
+	caret   = '^'
 )
-
-func noop() {
-	fmt.Println()
-}
 
 func Match(dir, pattern string) bool {
 	return match(dir, pattern)
@@ -195,16 +190,11 @@ func charsetMatch(char byte, pat string) (int, bool) {
 	var (
 		i     int
 		match bool
-		neg   = pat[0] == bang
+		neg   = pat[0] == bang || pat[0] == caret
 	)
 	if neg {
 		i++
 	}
-	// if pat[i] == rsquare {
-	// 	if j := i+1; j < len(pat) {
-	//
-	// 	}
-	// }
 	for ; pat[i] != rsquare; i++ {
 		if pat[i] == dash {
 			if p, n := pat[i-1], pat[i+1]; isRange(p, n) && char >= p && char <= n {
