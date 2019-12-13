@@ -139,6 +139,9 @@ func match(str, pat string) bool {
 	}
 	var i, j int
 	for ; i < len(pat); i++ {
+		if j >= len(str) && pat[i] != star {
+			break
+		}
 		switch char := pat[i]; char {
 		case star:
 			ni, nj, ok := starMatch(str[j:], pat[i:])
