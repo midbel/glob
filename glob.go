@@ -185,7 +185,7 @@ func starMatch(str, pat string) (int, int, bool) {
 	}
 	// trailing star matchs rest of text
 	// star matchs also empty string
-	if i >= len(pat) || str == "" {
+	if i >= len(pat) && str == "" {
 		return i, len(str) + 1, true
 	}
 	for j < len(str) {
