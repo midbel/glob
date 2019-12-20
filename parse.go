@@ -145,52 +145,6 @@ func (m *multiple) Match(str string) (Matcher, error) {
 	return nil, ErrPattern
 }
 
-//
-// func (m *multiple) Match(str string) (Matcher, error) {
-// 	var (
-// 		offset  int
-// 		matched int
-// 	)
-// 	for _, m := range m.ms {
-// 		if offset >= len(str) {
-// 			return nil, ErrPattern
-// 		}
-//
-// 		mr, mok := m.(interface{ more() bool })
-//
-// 		var (
-// 			base  = offset
-// 			match bool
-// 			multi bool
-// 		)
-// 		offset++
-// 		for offset <= len(str) {
-// 			if _, err := m.Match(str[base:offset]); err == nil {
-// 				matched++
-// 				if mok && mr.more() {
-// 					base, multi = offset, true
-// 					offset++
-// 					continue
-// 				}
-// 				match = true
-// 				break
-// 			}
-// 			offset++
-// 		}
-// 		if multi {
-// 			match, offset = multi, base
-// 		}
-// 		if !match {
-// 			offset = 0
-// 			break
-// 		}
-// 	}
-// 	if offset == len(str) || matched == len(m.ms) {
-// 		return nil, nil
-// 	}
-// 	return nil, ErrPattern
-// }
-
 func (m *multiple) is(_ string) bool {
 	return false
 }
@@ -353,6 +307,11 @@ func parseReader(r *strings.Reader) (Matcher, error) {
 			}
 			cs = append(cs, g)
 		case bang:
+      if z, _, _ := r.ReadRune(); z != lparen {
+				buf.WriteRune(k)
+				r.UnreadRune()
+				continue
+			}
 			if buf.Len() > 0 {
 				cs = append(cs, &simple{pattern: buf.String()})
 				buf.Reset()
