@@ -4,250 +4,86 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
-const branch = "**"
-
-const (
-	slash     = '/'
-	backslash = '\\'
-	dash      = '-'
-	star      = '*'
-	mark      = '?'
-	lsquare   = '['
-	rsquare   = ']'
-	bang      = '!'
-	caret     = '^'
-	lparen    = '('
-	rparen    = ')'
-	pipe      = '|'
-	arobase   = '@'
-	plus      = '+'
-	newline   = '\n'
-	tab       = '\t'
-	space     = ' '
-)
-
-func Match(dir, pattern string) bool {
-	return match(dir, pattern)
+type Glob struct {
+	queue   <-chan entry
+	keepDir bool
 }
 
-func Glob(pattern string) []string {
-	var (
-		files = make([]string, 0, 100)
-		glob  = New("", pattern)
-	)
-	for f := glob.Glob(); f != ""; f = glob.Glob() {
-		files = append(files, f)
+func New(pattern string, dirs ...string) (*Glob, error) {
+	m, err := Compile(pattern)
+	if err != nil {
+		return nil, err
 	}
-	return files
-}
-
-type Globber struct {
-	queue <-chan string
-
-	keepDir  bool // keep directories when they match the given pattern
-	keepLink bool // follows symlinks
-}
-
-func New(dir, pattern string) *Globber {
-	queue := make(chan string)
+	queue := make(chan entry)
 	go func() {
 		defer close(queue)
-		if pattern == "" {
-			return
+		for _, d := range dirs {
+			glob(d, m, queue)
 		}
-		if dir == "" {
-			dir = "."
-		}
-		ps := cleanPattern(strings.FieldsFunc(pattern, splitPattern))
-		glob(queue, dir, ps)
 	}()
-	g := Globber{queue: queue}
-	return &g
+	return &Glob{queue: queue}, nil
 }
 
-func (g *Globber) Glob() string {
-	s, ok := <-g.queue
-	if !ok {
-		s = ""
-	}
-	return s
-}
-
-func glob(queue chan<- string, dir string, pattern []string) {
-	if len(pattern) == 0 {
-		return
-	}
-
-	if pattern[0] == branch {
-		globAny(queue, dir, pattern)
-		return
-	}
-
-	for i := range readDir(dir) {
-		if ok := match(i.Name(), pattern[0]); !ok {
+func (g *Glob) Glob() string {
+	for {
+		e := <-g.queue
+		if !g.keepDir && e.Dir {
 			continue
 		}
-		file := filepath.Join(dir, i.Name())
-		if i.IsDir() {
-			glob(queue, file, pattern[1:])
-		}
-		if len(pattern) <= 1 {
-			queue <- file
-		}
+		return e.Name
 	}
 }
 
-func globAny(queue chan<- string, dir string, pattern []string) {
-	if pattern[0] == branch && len(pattern) == 1 {
-		for i := range readDir(dir) {
-			file := filepath.Join(dir, i.Name())
-			if i.IsDir() {
-				glob(queue, file, pattern)
-			}
-			queue <- file
-		}
+func glob(dir string, m Matcher, q chan<- entry) {
+	if m == nil {
 		return
 	}
-
-	pat := pattern[1:]
-	for i := range readDir(dir) {
-		ok := match(i.Name(), pat[0])
-		if i.Mode().IsRegular() && ok && len(pat) == 1 {
-			queue <- filepath.Join(dir, i.Name())
+	es, err := scan(dir)
+	if err != nil {
+		return
+	}
+	for e := range es {
+		next, err := m.Match(e.Name)
+		if err != nil {
 			continue
 		}
-		if i.IsDir() {
-			if file := filepath.Join(dir, i.Name()); ok {
-				glob(queue, file, pat[1:])
-				if len(pat) <= 1 {
-					queue <- file
-				}
-			} else {
-				globAny(queue, file, pattern)
+		file := filepath.Join(dir, e.Name)
+		if e.Dir {
+			glob(file, next, q)
+		}
+		if next == nil {
+			q <- entry{
+				Name: file,
+				Dir:  e.Dir,
 			}
 		}
 	}
 }
 
-func match(str, pat string) bool {
-	// shortcut: pat is only one star or pat and str are identicals
-	if pat == string(star) || (len(str) == len(pat) && str == pat) {
-		return true
-	}
-	var i, j int
-	for ; i < len(pat); i++ {
-		if j >= len(str) && pat[i] != star {
-			break
-		}
-		switch char := pat[i]; char {
-		case star:
-			ni, nj, ok := starMatch(str[j:], pat[i:])
-			if ok {
-				return ok
-			}
-			i += ni
-			j += nj
-		case mark:
-			// match a single character
-		case lsquare:
-			n, ok := charsetMatch(str[j], pat[i+1:])
-			if !ok {
-				return false
-			}
-			i += n + 1
-		default:
-			if char == backslash {
-				i++
-			}
-			if pat[i] != str[j] {
-				return false
-			}
-		}
-		if j >= len(str) {
-			break
-		}
-		j++
-	}
-	// we have a match when all characters of pattern and text have been read
-	return i == len(pat) && j >= len(str)
+type entry struct {
+	Name string
+	Dir  bool
 }
 
-func starMatch(str, pat string) (int, int, bool) {
-	// multiple stars is the same as one star
-	var (
-		i, j int
-		ok   bool
-	)
-	for i = 1; i < len(pat) && pat[i] == star; i++ {
-	}
-	// trailing star matchs rest of text
-	// star matchs also empty string
-	if i >= len(pat) && str == "" {
-		return i, len(str) + 1, true
-	}
-	for j < len(str) {
-		if ok = match(str[j:], pat[i:]); ok {
-			break
-		}
-		j++
-	}
-	return i, j, ok
-}
-
-func charsetMatch(char byte, pat string) (int, bool) {
-	var (
-		i     int
-		match bool
-		neg   = pat[0] == bang || pat[0] == caret
-	)
-	if neg {
-		i++
-	}
-	for ; pat[i] != rsquare; i++ {
-		if pat[i] == dash {
-			if p, n := pat[i-1], pat[i+1]; isRange(p, n) && char >= p && char <= n {
-				match = true
-				break
-			}
-		}
-		if match = char == pat[i]; match {
-			break
-		}
-	}
-	for ; pat[i] != rsquare; i++ {
-	}
-	if neg {
-		match = !match
-	}
-	return i, match
-}
-
-func isRange(prev, next byte) bool {
-	return prev < next && acceptRange(prev) && acceptRange(next)
-}
-
-func acceptRange(b byte) bool {
-	return (b >= 'a' || b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
-}
-
-func readDir(dir string) <-chan os.FileInfo {
+func scan(dir string) (<-chan entry, error) {
 	r, err := os.Open(dir)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	queue := make(chan os.FileInfo)
+	queue := make(chan entry)
 	go func() {
 		defer func() {
 			close(queue)
 			r.Close()
 		}()
 		for {
-			is, err := r.Readdir(100)
-			for i := range is {
-				i := is[i]
+			is, err := r.Readdir(64)
+			if len(is) == 0 || err == io.EOF {
+				break
+			}
+			for _, i := range is {
 				if set := i.Mode() & os.ModeSymlink; set != 0 {
 					f, err := filepath.EvalSymlinks(filepath.Join(dir, i.Name()))
 					if err != nil {
@@ -257,29 +93,12 @@ func readDir(dir string) <-chan os.FileInfo {
 						continue
 					}
 				}
-				queue <- i
-			}
-			if len(is) == 0 || err == io.EOF {
-				break
+				queue <- entry{
+					Name: i.Name(),
+					Dir:  i.IsDir(),
+				}
 			}
 		}
 	}()
-	return queue
-}
-
-func cleanPattern(pattern []string) []string {
-	// just remove consecutive **
-	for i := 0; ; i++ {
-		if i >= len(pattern) {
-			break
-		}
-		if j := i - 1; j >= 0 && pattern[i] == branch && pattern[j] == branch {
-			pattern, i = append(pattern[:i], pattern[i+1:]...), j
-		}
-	}
-	return pattern
-}
-
-func splitPattern(r rune) bool {
-	return r == slash || r == backslash
+	return queue, nil
 }
