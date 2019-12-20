@@ -44,10 +44,6 @@ type simple struct {
 	pattern string
 }
 
-func (s *simple) String() string {
-	return fmt.Sprintf("Simple(%s)", s.pattern)
-}
-
 func (s *simple) Match(str string) (Matcher, error) {
 	var (
 		err   error
@@ -67,19 +63,6 @@ type group struct {
 	ms []Matcher
 }
 
-func (g *group) String() string {
-	var buf strings.Builder
-	buf.WriteString("Group(")
-	for i, m := range g.ms {
-		if i > 0 {
-			buf.WriteRune(pipe)
-		}
-		buf.WriteString(m.String())
-	}
-	buf.WriteRune(rparen)
-	return buf.String()
-}
-
 func (g *group) Match(str string) (Matcher, error) {
 	for _, m := range g.ms {
 		x, err := m.Match(str)
@@ -96,16 +79,6 @@ func (g *group) is(_ string) bool {
 
 type multiple struct {
 	ms []Matcher
-}
-
-func (m *multiple) String() string {
-	var buf strings.Builder
-	buf.WriteString("Multi(")
-	for _, m := range m.ms {
-		buf.WriteString(m.String())
-	}
-	buf.WriteRune(rparen)
-	return buf.String()
 }
 
 func (m *multiple) Match(str string) (Matcher, error) {
@@ -157,10 +130,6 @@ type any struct {
 	matched int
 }
 
-func (a *any) String() string {
-	return fmt.Sprintf("Any(%s)", a.inner.String())
-}
-
 func (a *any) Match(str string) (Matcher, error) {
 	var (
 		match  int
@@ -206,10 +175,6 @@ type not struct {
 	inner Matcher
 }
 
-func (n *not) String() string {
-	return fmt.Sprintf("Not(%s)", n.inner.String())
-}
-
 func (n *not) Match(str string) (Matcher, error) {
 	_, err := n.inner.Match(str)
 	if err == nil {
@@ -227,13 +192,6 @@ func (n *not) is(_ string) bool {
 type element struct {
 	head Matcher
 	next Matcher
-}
-
-func (e *element) String() string {
-	if e.head == nil {
-		return "Nil()"
-	}
-	return fmt.Sprintf("Element(%s)", e.head)
 }
 
 func (e *element) Match(str string) (Matcher, error) {

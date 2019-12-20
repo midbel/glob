@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 )
 
+func init() {
+	scan = scandir
+}
+
 type Glob struct {
 	queue   <-chan entry
 	keepDir bool
@@ -67,7 +71,9 @@ type entry struct {
 	Dir  bool
 }
 
-func scan(dir string) (<-chan entry, error) {
+var scan func(string) (<-chan entry, error)
+
+func scandir(dir string) (<-chan entry, error) {
 	r, err := os.Open(dir)
 	if err != nil {
 		return nil, err

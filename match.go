@@ -2,7 +2,6 @@ package glob
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 )
 
@@ -13,7 +12,6 @@ var (
 
 type Matcher interface {
 	Match(string) (Matcher, error)
-	fmt.Stringer
 
 	is(string) bool
 }
