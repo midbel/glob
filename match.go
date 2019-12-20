@@ -40,9 +40,6 @@ func Match(str, pattern string) error {
 }
 
 func match(str, pat string) (int, bool) {
-	if len(str) == 0 && len(pat) > 0 {
-		return 0, false
-	}
 	// shortcut: pat is only one star or pat and str are identicals
 	if pat == string(star) || (len(str) == len(pat) && str == pat) {
 		return len(str), true

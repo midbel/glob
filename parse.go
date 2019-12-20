@@ -307,7 +307,7 @@ func parseReader(r *strings.Reader) (Matcher, error) {
 			}
 			cs = append(cs, g)
 		case bang:
-      if z, _, _ := r.ReadRune(); z != lparen {
+			if z, _, _ := r.ReadRune(); z != lparen {
 				buf.WriteRune(k)
 				r.UnreadRune()
 				continue
