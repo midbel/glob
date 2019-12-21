@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-  "os"
-  "strings"
+	"os"
+	"strings"
 
 	"github.com/midbel/glob"
 )

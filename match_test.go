@@ -27,6 +27,9 @@ func testMatchExtended(t *testing.T) {
 		{Input: "foo", Pattern: "?(foo)", Match: true},
 		{Input: "", Pattern: "?(foo)", Match: true},
 		{Input: "foobar", Pattern: "?(foo|bar)", Match: false},
+		{Input: "foobar", Pattern: "!(foo|bar)", Match: false},
+		{Input: "github.com", Pattern: "g*.(com|org)", Match: true},
+		{Input: "golang.org", Pattern: "g*.(com|org)", Match: true},
 	}
 	testMatchCases(t, data)
 }

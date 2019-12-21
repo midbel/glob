@@ -2,6 +2,7 @@ package glob
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -11,8 +12,9 @@ var (
 )
 
 type Matcher interface {
-	Match(string) (Matcher, error)
+	fmt.Stringer
 
+	Match(string) (Matcher, error)
 	is(string) bool
 }
 
@@ -35,6 +37,227 @@ func Match(str, pattern string) error {
 		err = ErrPattern
 	}
 	return err
+}
+
+type simple struct {
+	pattern string
+}
+
+func (s *simple) String() string {
+	return fmt.Sprintf("simple(%s)", s.pattern)
+}
+
+func (s *simple) Match(str string) (Matcher, error) {
+	var (
+		err   error
+		_, ok = match(str, s.pattern)
+	)
+	if !ok {
+		err = ErrPattern
+	}
+	return nil, err
+}
+
+func (s *simple) is(str string) bool {
+	return str == s.pattern
+}
+
+type group struct {
+	ms []Matcher
+}
+
+func (g *group) String() string {
+	var buf strings.Builder
+	buf.WriteString("group(")
+	for i, m := range g.ms {
+		if i > 0 {
+			buf.WriteRune(pipe)
+		}
+		buf.WriteString(m.String())
+	}
+	buf.WriteRune(rparen)
+	return buf.String()
+}
+
+func (g *group) Match(str string) (Matcher, error) {
+	for _, m := range g.ms {
+		x, err := m.Match(str)
+		if err == nil || errors.Is(err, ErrMatch) {
+			return x, nil
+		}
+	}
+	return nil, ErrPattern
+}
+
+func (g *group) is(_ string) bool {
+	return false
+}
+
+type multiple struct {
+	ms []Matcher
+}
+
+func (m *multiple) String() string {
+	var buf strings.Builder
+	buf.WriteString("group(")
+	for _, m := range m.ms {
+		buf.WriteString(m.String())
+	}
+	buf.WriteRune(rparen)
+	return buf.String()
+}
+
+func (m *multiple) Match(str string) (Matcher, error) {
+	var offset int
+	for _, m := range m.ms {
+		if offset >= len(str) {
+			return nil, ErrPattern
+		}
+
+		mr, mok := m.(interface{ more() bool })
+
+		var (
+			multi bool
+			match bool
+		)
+		for i := len(str); i > offset; i-- {
+			if _, err := m.Match(str[offset:i]); err == nil {
+				if mok && mr.more() {
+					multi = true
+					continue
+				}
+				match, offset = true, i
+				break
+			}
+		}
+		if multi {
+			match = multi
+		}
+		if !match {
+			offset = 0
+			break
+		}
+	}
+	if offset == len(str) {
+		return nil, nil
+	}
+	return nil, ErrPattern
+}
+
+func (m *multiple) is(_ string) bool {
+	return false
+}
+
+type any struct {
+	min   int
+	max   int
+	inner Matcher
+
+	matched int
+}
+
+func (a *any) String() string {
+	return fmt.Sprintf("any(%s)", a.inner)
+}
+
+func (a *any) Match(str string) (Matcher, error) {
+	var (
+		match  int
+		offset int
+	)
+	for {
+		if offset >= len(str) {
+			break
+		}
+		base := offset
+		offset++
+		for offset <= len(str) {
+			if _, err := a.inner.Match(str[base:offset]); err == nil {
+				match++
+				break
+			}
+			offset++
+		}
+		if a.max > 0 && match >= a.max {
+			break
+		}
+	}
+	ok := offset <= len(str) && match >= a.min
+	if ok && a.max > 0 {
+		ok = match <= a.max
+	}
+	if ok {
+		a.matched++
+		return nil, nil
+	}
+	return nil, ErrPattern
+}
+
+func (a *any) more() bool {
+	return a.matched < a.min || a.max == 0 || a.matched < a.max
+}
+
+func (a *any) is(_ string) bool {
+	return false
+}
+
+type not struct {
+	inner Matcher
+}
+
+func (n *not) String() string {
+	return fmt.Sprintf("not(%s)", n.inner)
+}
+
+func (n *not) Match(str string) (Matcher, error) {
+	_, err := n.inner.Match(str)
+	if err == nil {
+		err = ErrPattern
+	} else {
+		err = nil
+	}
+	return nil, err
+}
+
+func (n *not) is(_ string) bool {
+	return false
+}
+
+type element struct {
+	head Matcher
+	next Matcher
+}
+
+func (e *element) String() string {
+	return fmt.Sprintf("element(%s)", e.head)
+}
+
+func (e *element) Match(str string) (Matcher, error) {
+	if e == nil || e.head == nil {
+		return nil, ErrPattern
+	}
+	if e.head.is("**") && e.next != nil {
+		if m, err := e.next.Match(str); err == nil {
+			return m, nil
+		}
+		return e, nil
+	}
+	m, err := e.head.Match(str)
+	if err == nil || errors.Is(err, ErrMatch) {
+		if m == nil {
+			m = e.next
+		} else {
+			m = &element{
+				head: m,
+				next: e.next,
+			}
+		}
+	}
+	return m, err
+}
+
+func (e *element) is(str string) bool {
+	return e.head.is(str)
 }
 
 func match(str, pat string) (int, bool) {
