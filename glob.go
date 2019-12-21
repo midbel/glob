@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func init() {
@@ -99,8 +100,12 @@ func scandir(dir string) (<-chan entry, error) {
 						continue
 					}
 				}
+				name := i.Name()
+				if strings.HasPrefix(name, ".") {
+					continue
+				}
 				queue <- entry{
-					Name: i.Name(),
+					Name: name,
 					Dir:  i.IsDir(),
 				}
 			}
