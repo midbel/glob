@@ -270,6 +270,7 @@ func parseReader(r *strings.Reader) (Matcher, error) {
 				r.UnreadRune()
 				continue
 			}
+			r.UnreadRune()
 			if buf.Len() > 0 {
 				cs = append(cs, &simple{pattern: buf.String()})
 				buf.Reset()
