@@ -51,7 +51,7 @@ func TestGlob(t *testing.T) {
 			},
 		},
 		{
-			Pattern: "src/**/*.!(go)",
+			Pattern: "src/github.com/**/*.!(go)",
 			Files: []string{
 				"src/github.com/midbel/glob/README.md",
 				"src/github.com/midbel/toml/README.md",
