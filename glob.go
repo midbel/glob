@@ -1,6 +1,7 @@
 package glob
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -51,7 +52,7 @@ func glob(dir string, m Matcher, q chan<- entry) {
 	}
 	for e := range es {
 		next, err := m.Match(e.Name)
-		if err != nil {
+		if err != nil && !errors.Is(err, ErrMatch) {
 			continue
 		}
 		file := filepath.Join(dir, e.Name)
