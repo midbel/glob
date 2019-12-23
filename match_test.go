@@ -30,6 +30,10 @@ func testMatchExtended(t *testing.T) {
 		{Input: "foobar", Pattern: "!(foo|bar)", Match: false},
 		{Input: "github.com", Pattern: "g*.(com|org)", Match: true},
 		{Input: "golang.org", Pattern: "g*.(com|org)", Match: true},
+		{Input: "github.com/foo/toml/README.md", Pattern: "g*.(com|org)/(foo/toml|bar/glob)/*md", Match: true},
+		{Input: "github.com/bar/glob/README.md", Pattern: "g*.(com|org)/(foo/toml|bar/glob)/*md", Match: true},
+		{Input: "github.com/midbel/toml/README.md", Pattern: "g*.(com|org)/(midbel/toml|midbel/glob)/*md", Match: true},
+		{Input: "github.com/midbel/glob/README.md", Pattern: "g*.(com|org)/(midbel/toml|midbel/glob)/*md", Match: true},
 	}
 	testMatchCases(t, data)
 }

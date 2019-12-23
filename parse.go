@@ -232,7 +232,7 @@ func debug(m Matcher, level int) {
 		if m == nil {
 			return
 		}
-		fmt.Printf("%selement[%v](\n", indent, m.next)
+		fmt.Printf("%selement(\n", indent)
 		debug(m.head, level+1)
 		fmt.Printf("%s)\n", indent)
 		if m.next != nil {
