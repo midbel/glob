@@ -80,13 +80,25 @@ func (g *group) String() string {
 }
 
 func (g *group) Match(str string) (Matcher, error) {
+	next := make([]Matcher, 0, len(g.ms))
 	for _, m := range g.ms {
 		x, err := m.Match(str)
 		if err == nil || errors.Is(err, ErrMatch) {
-			return x, nil
+			if x != nil {
+				next = append(next, x)
+			}
 		}
 	}
-	return nil, ErrPattern
+	if len(next) == 0 {
+		return nil, ErrPattern
+	}
+	var x Matcher
+	if len(next) == 1 {
+		x = next[0]
+	} else {
+		x = &group{ms: next}
+	}
+	return x, nil
 }
 
 func (g *group) is(_ string) bool {
