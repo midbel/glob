@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
@@ -82,7 +83,7 @@ func (g *group) String() string {
 func (g *group) Match(str string) (Matcher, error) {
 	var (
 		match bool
-		next = make([]Matcher, 0, len(g.ms))
+		next  = make([]Matcher, 0, len(g.ms))
 	)
 	for _, m := range g.ms {
 		x, err := m.Match(str)
@@ -284,11 +285,21 @@ func match(str, pat string) (int, bool) {
 		return len(str), true
 	}
 	var i, j int
-	for ; i < len(pat); i++ {
-		if j >= len(str) && pat[i] != star {
+	for {
+		k, n := utf8.DecodeRuneInString(pat[i:])
+		if k == utf8.RuneError {
+			if n == 0 {
+				break
+			}
+			if n < 0 {
+				return -1, false
+			}
+		}
+		i += n
+		if j >= len(str) && k != star {
 			break
 		}
-		switch char := pat[i]; char {
+		switch k {
 		case star:
 			ni, nj, ok := starMatch(str[j:], pat[i:])
 			if ok {
@@ -298,24 +309,29 @@ func match(str, pat string) (int, bool) {
 			j += nj
 		case mark:
 			// match a single character
+			_, n := utf8.DecodeRuneInString(str[j:])
+			if n > 0 {
+				j += n
+			}
 		case lsquare:
-			n, ok := charsetMatch(str[j], pat[i+1:])
+			char, nj := utf8.DecodeRuneInString(str[j:])
+			ni, ok := charsetMatch(char, pat[i:])
 			if !ok {
 				return j, false
 			}
-			i += n + 1
+			j += nj
+			i += ni
 		default:
-			if char == backslash {
-				i++
+			if k == backslash {
+				k, n = utf8.DecodeRuneInString(pat[i:])
+				i += n
 			}
-			if pat[i] != str[j] {
+			char, n := utf8.DecodeRuneInString(str[j:])
+			if k != char {
 				return j, false
 			}
+			j += n
 		}
-		if j >= len(str) {
-			break
-		}
-		j++
 	}
 	// we have a match when all characters of pattern and text have been read
 	return j, i == len(pat) && j >= len(str)
@@ -327,10 +343,14 @@ func starMatch(str, pat string) (int, int, bool) {
 		i, j int
 		ok   bool
 	)
-	for i = 1; i < len(pat) && pat[i] == star; i++ {
+	for {
+		k, n := utf8.DecodeRuneInString(pat[i:])
+		if k != star {
+			break
+		}
+		i += n
 	}
-	// trailing star matchs rest of text
-	// star matchs also empty string
+	// trailing star matchs rest of text - star matchs also empty string
 	if i >= len(pat) && str == "" {
 		return i, len(str) + 1, true
 	}
@@ -338,43 +358,64 @@ func starMatch(str, pat string) (int, int, bool) {
 		if _, ok = match(str[j:], pat[i:]); ok {
 			break
 		}
-		j++
+		k, n := utf8.DecodeRuneInString(str[j:])
+		if k == utf8.RuneError {
+			break
+		}
+		j += n
 	}
 	return i, j, ok
 }
 
-func charsetMatch(char byte, pat string) (int, bool) {
+func charsetMatch(char rune, pat string) (int, bool) {
+	next, n := utf8.DecodeRuneInString(pat)
 	var (
-		i     int
-		match bool
-		neg   = pat[0] == bang || pat[0] == caret
+		i      int
+		match  bool
+		prev   rune
+		negate = next == bang || next == caret
 	)
-	if neg {
-		i++
+	if negate {
+		i += n
 	}
-	for ; pat[i] != rsquare; i++ {
-		if pat[i] == dash {
-			if p, n := pat[i-1], pat[i+1]; isRange(p, n) && char >= p && char <= n {
+	for {
+		k, n := utf8.DecodeRuneInString(pat[i:])
+		i += n
+		if k == rsquare || k == utf8.RuneError {
+			prev = k
+			break
+		}
+		if k == dash {
+			next, n = utf8.DecodeRuneInString(pat[i:])
+			if isRange(prev, next) && char >= prev && char <= next {
 				match = true
 				break
 			}
 		}
-		if match = char == pat[i]; match {
+		if match = char == k; match {
 			break
 		}
+		prev = k
 	}
-	for ; pat[i] != rsquare; i++ {
+	if prev != rsquare && prev != utf8.RuneError {
+		for {
+			k, n := utf8.DecodeRuneInString(pat[i:])
+			i += n
+			if k == rsquare || k == utf8.RuneError {
+				break
+			}
+		}
 	}
-	if neg {
+	if negate {
 		match = !match
 	}
 	return i, match
 }
 
-func isRange(prev, next byte) bool {
+func isRange(prev, next rune) bool {
 	return prev < next && acceptRange(prev) && acceptRange(next)
 }
 
-func acceptRange(b byte) bool {
+func acceptRange(b rune) bool {
 	return (b >= 'a' || b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }

@@ -46,6 +46,7 @@ func testMatchSimple(t *testing.T) {
 		{Input: "foo", Pattern: "*foo", Match: true},
 		{Input: "foo", Pattern: "foo*", Match: true},
 		{Input: "foo", Pattern: "*foo*", Match: true},
+		{Input: "foobar", Pattern: "f****r", Match: true},
 		{Input: "foobar", Pattern: "*foo*", Match: true},
 		{Input: "foo", Pattern: "???", Match: true},
 		{Input: "foo", Pattern: "f?o", Match: true},
