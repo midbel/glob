@@ -80,22 +80,28 @@ func (g *group) String() string {
 }
 
 func (g *group) Match(str string) (Matcher, error) {
-	next := make([]Matcher, 0, len(g.ms))
+	var (
+		match bool
+		next = make([]Matcher, 0, len(g.ms))
+	)
 	for _, m := range g.ms {
 		x, err := m.Match(str)
 		if err == nil || errors.Is(err, ErrMatch) {
+			match = true
 			if x != nil {
 				next = append(next, x)
 			}
 		}
 	}
-	if len(next) == 0 {
+	if !match {
 		return nil, ErrPattern
 	}
 	var x Matcher
-	if len(next) == 1 {
+	switch len(next) {
+	case 0:
+	case 1:
 		x = next[0]
-	} else {
+	default:
 		x = &group{ms: next}
 	}
 	return x, nil
