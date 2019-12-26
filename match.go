@@ -138,16 +138,22 @@ func (m *multiple) Match(str string) (Matcher, error) {
 		var (
 			multi bool
 			match bool
+			limit = len(str)
 		)
-		for i := len(str); i > offset; i-- {
-			if _, err := m.Match(str[offset:i]); err == nil {
+		for {
+			if _, err := m.Match(str[offset:limit]); err == nil {
 				if mok && mr.more() {
 					multi = true
 					continue
 				}
-				match, offset = true, i
+				match, offset = true, limit
 				break
 			}
+			k, n := utf8.DecodeLastRuneInString(str[offset:limit])
+			if k == utf8.RuneError {
+				break
+			}
+			limit -= n
 		}
 		if multi {
 			match = multi
@@ -189,13 +195,21 @@ func (a *any) Match(str string) (Matcher, error) {
 			break
 		}
 		base := offset
-		offset++
+		_, n := utf8.DecodeRuneInString(str[base:])
+		if n <= 0 {
+			break
+		}
+		offset += n
 		for offset <= len(str) {
 			if _, err := a.inner.Match(str[base:offset]); err == nil {
 				match++
 				break
 			}
-			offset++
+			k, n := utf8.DecodeRuneInString(str[base:])
+			if k == utf8.RuneError {
+				break
+			}
+			offset += n
 		}
 		if a.max > 0 && match >= a.max {
 			break
@@ -285,7 +299,7 @@ func match(str, pat string) (int, bool) {
 		return len(str), true
 	}
 	var i, j int
-	for {
+	for i < len(pat) {
 		k, n := utf8.DecodeRuneInString(pat[i:])
 		if k == utf8.RuneError {
 			if n == 0 {
@@ -295,10 +309,10 @@ func match(str, pat string) (int, bool) {
 				return -1, false
 			}
 		}
-		i += n
 		if j >= len(str) && k != star {
 			break
 		}
+		i += n
 		switch k {
 		case star:
 			ni, nj, ok := starMatch(str[j:], pat[i:])
