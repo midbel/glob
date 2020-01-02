@@ -60,9 +60,6 @@ func runCompile(args []string) error {
 }
 
 func runGlob(pattern string, base []string) error {
-	if len(base) == 0 {
-		return fmt.Errorf("no directory given")
-	}
 	g, err := glob.New(pattern, base...)
 	if err != nil {
 		return err

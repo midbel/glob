@@ -18,6 +18,17 @@ type Glob struct {
 }
 
 func New(pattern string, dirs ...string) (*Glob, error) {
+	if len(dirs) == 0 {
+		if strings.HasPrefix(pattern, "/") {
+			dirs = append(dirs, "/")
+		} else {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return nil, err
+			}
+			dirs = append(dirs, cwd)
+		}
+	}
 	m, err := Compile(pattern)
 	if err != nil {
 		return nil, err
