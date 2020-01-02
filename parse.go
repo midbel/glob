@@ -72,7 +72,12 @@ func parseReader(r *strings.Reader) (Matcher, error) {
 				}
 			}
 			r.UnreadRune()
-		case lparen:
+		case arobase:
+			if z, _, _ := r.ReadRune(); z != lparen {
+				buf.WriteRune(k)
+				r.UnreadRune()
+				continue
+			}
 			if buf.Len() > 0 {
 				cs = append(cs, &simple{pattern: buf.String()})
 				buf.Reset()
