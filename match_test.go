@@ -35,6 +35,10 @@ func testMatchExtended(t *testing.T) {
 		{Input: "github.com/bar/glob/README.md", Pattern: "g*.@(com|org)/@(foo/toml|bar/glob)/*md", Match: true},
 		{Input: "github.com/midbel/toml/README.md", Pattern: "g*.@(com|org)/@(midbel/toml|midbel/glob)/*md", Match: true},
 		{Input: "github.com/midbel/glob/README.md", Pattern: "g*.@(com|org)/@(midbel/toml|midbel/glob)/*md", Match: true},
+		{Input: "github.com/midbel/glob/README.md", Pattern: "g*.@(com|org)/**/*.md!(.old)", Match: true},
+		{Input: "github.com/midbel/glob/README.md.old", Pattern: "g*.@(com|org)/**/*.md!(.old)", Match: false},
+		{Input: "github.com/midbel/glob/README.md", Pattern: "g*.@(com|org)/**/*.!(txt)", Match: true},
+		{Input: "github.com/midbel/glob/README.txt", Pattern: "g*.@(com|org)/**/*.!(txt)", Match: false},
 	}
 	testMatchCases(t, data)
 }
