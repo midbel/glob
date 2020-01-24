@@ -129,10 +129,6 @@ func (m *multiple) String() string {
 func (m *multiple) Match(str string) (Matcher, error) {
 	var offset int
 	for _, m := range m.ms {
-		if offset >= len(str) {
-			return nil, ErrPattern
-		}
-
 		mr, mok := m.(interface{ more() bool })
 
 		var (
