@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/midbel/glob"
+	"github.com/midbel/sizefmt"
 )
 
 func main() {
@@ -64,8 +65,16 @@ func runGlob(pattern string, base []string) error {
 	if err != nil {
 		return err
 	}
+	var size float64
 	for f := g.Glob(); f != ""; f = g.Glob() {
-		fmt.Println(f)
+		s, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		z := float64(s.Size())
+		fmt.Printf("%-9s %s\n", sizefmt.Format(z, sizefmt.IEC), f)
+		size += z
 	}
+	fmt.Println(sizefmt.Format(size, sizefmt.IEC))
 	return nil
 }
