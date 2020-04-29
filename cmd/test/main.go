@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"strings"
@@ -82,33 +84,40 @@ func runGlob(pattern string, base []string, csv bool) error {
 		digest = xxh.New64(0)
 	)
 	for f := g.Glob(); f != ""; f = g.Glob() {
-		r, err := os.Open(f)
+		size, sum, err := statFile(f, digest)
 		if err != nil {
 			return err
 		}
-		if _, err := io.Copy(digest, r); err != nil {
-			return err
-		}
-		s, err := r.Stat()
-		if err != nil {
-			return err
-		}
-		var (
-			size = s.Size()
-			sum  = digest.Sum(nil)
-		)
-		digest.Reset()
 
-		line.AppendSize(size, 6, linewriter.SizeIEC)
+		line.AppendSize(size, 10, linewriter.SizeIEC)
 		line.AppendBytes(sum, 16, linewriter.Hex)
 		line.AppendString(f, 0, linewriter.AlignLeft)
-		if _, err := io.Copy(os.Stdout, line); err != nil {
+		if _, err := io.Copy(os.Stdout, line); err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
-		// fmt.Printf("%-9s %s\n", sizefmt.Format(z, sizefmt.IEC), f)
 		total += float64(size)
 		files++
 	}
 	fmt.Printf("%d files (%s)\n", files, sizefmt.Format(total, sizefmt.IEC))
 	return nil
+}
+
+func statFile(f string, digest hash.Hash) (int64, []byte, error) {
+	r, err := os.Open(f)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer func() {
+		r.Close()
+		digest.Reset()
+	}()
+
+	if _, err := io.Copy(digest, r); err != nil {
+		return 0, nil, err
+	}
+	s, err := r.Stat()
+	if err != nil {
+		return 0, nil, err
+	}
+	return s.Size(), digest.Sum(nil), nil
 }
