@@ -3,17 +3,21 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/midbel/glob"
+	"github.com/midbel/linewriter"
 	"github.com/midbel/sizefmt"
+	"github.com/midbel/xxh"
 )
 
 func main() {
 	var (
 		matching  = flag.Bool("m", false, "matching")
 		compiling = flag.Bool("c", false, "compiling")
+		csv       = flag.Bool("p", false, "csv")
 	)
 	flag.Parse()
 
@@ -28,7 +32,7 @@ func main() {
 		for i := 1; i < flag.NArg(); i++ {
 			args[i-1] = flag.Arg(i)
 		}
-		err = runGlob(flag.Arg(0), args)
+		err = runGlob(flag.Arg(0), args, *csv)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -60,21 +64,51 @@ func runCompile(args []string) error {
 	return nil
 }
 
-func runGlob(pattern string, base []string) error {
+func runGlob(pattern string, base []string, csv bool) error {
+	var option linewriter.Option
+	if csv {
+		option = linewriter.AsCSV(false)
+	} else {
+		option = linewriter.WithPadding([]byte(" "))
+	}
 	g, err := glob.New(pattern, base...)
 	if err != nil {
 		return err
 	}
-	var size float64
+	var (
+		total  float64
+		files  uint
+		line   = linewriter.NewWriter(4096, option)
+		digest = xxh.New64(0)
+	)
 	for f := g.Glob(); f != ""; f = g.Glob() {
-		s, err := os.Stat(f)
+		r, err := os.Open(f)
 		if err != nil {
-			continue
+			return err
 		}
-		z := float64(s.Size())
-		fmt.Printf("%-9s %s\n", sizefmt.Format(z, sizefmt.IEC), f)
-		size += z
+		if _, err := io.Copy(digest, r); err != nil {
+			return err
+		}
+		s, err := r.Stat()
+		if err != nil {
+			return err
+		}
+		var (
+			size = s.Size()
+			sum  = digest.Sum(nil)
+		)
+		digest.Reset()
+
+		line.AppendSize(size, 6, linewriter.SizeIEC)
+		line.AppendBytes(sum, 16, linewriter.Hex)
+		line.AppendString(f, 0, linewriter.AlignLeft)
+		if _, err := io.Copy(os.Stdout, line); err != nil {
+			return err
+		}
+		// fmt.Printf("%-9s %s\n", sizefmt.Format(z, sizefmt.IEC), f)
+		total += float64(size)
+		files++
 	}
-	fmt.Println(sizefmt.Format(size, sizefmt.IEC))
+	fmt.Printf("%d files (%s)\n", files, sizefmt.Format(total, sizefmt.IEC))
 	return nil
 }
