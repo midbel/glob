@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/midbel/linewriter"
 	"github.com/midbel/sizefmt"
 	"github.com/midbel/xxh"
+	"golang.org/x/sync/semaphore"
 )
 
 func main() {
@@ -66,6 +68,13 @@ func runCompile(args []string) error {
 	return nil
 }
 
+type FileInfo struct {
+	File string
+	Hash []byte
+	Size int64
+	Err  error
+}
+
 func runGlob(pattern string, base []string, csv bool) error {
 	var option linewriter.Option
 	if csv {
@@ -81,31 +90,54 @@ func runGlob(pattern string, base []string, csv bool) error {
 		total  float64
 		files  uint
 		line   = linewriter.NewWriter(4096, option)
-		digest = xxh.New64(0)
 	)
-	for f := g.Glob(); f != ""; f = g.Glob() {
-		size, sum, err := statFile(f, digest)
-		if err != nil {
-			return err
+	for fi := range gatherInfos(g) {
+		if fi.Err != nil {
+			return fi.Err
 		}
-
-		line.AppendSize(size, 10, linewriter.SizeIEC)
-		line.AppendBytes(sum, 16, linewriter.Hex)
-		line.AppendString(f, 0, linewriter.AlignLeft)
+		line.AppendSize(fi.Size, 10, linewriter.SizeIEC)
+		line.AppendBytes(fi.Hash, 16, linewriter.Hex)
+		line.AppendString(fi.File, 0, linewriter.AlignLeft)
 		if _, err := io.Copy(os.Stdout, line); err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
-		total += float64(size)
+		total += float64(fi.Size)
 		files++
 	}
 	fmt.Printf("%d files (%s)\n", files, sizefmt.Format(total, sizefmt.IEC))
 	return nil
 }
 
-func statFile(f string, digest hash.Hash) (int64, []byte, error) {
+func gatherInfos(g *glob.Glob) <-chan FileInfo {
+	queue := make(chan FileInfo)
+	go func() {
+		defer close(queue)
+		var (
+			ctx  = context.TODO()
+			sema = semaphore.NewWeighted(16)
+			digest = xxh.New64(0)
+		)
+		for f := g.Glob(); f != ""; f = g.Glob() {
+			sema.Acquire(ctx, 1)
+			go func(file string) {
+				defer sema.Release(1)
+				fi, err := statFile(file, digest)
+				fi.Err = err
+
+				queue <- fi
+			}(f)
+		}
+		sema.Acquire(ctx, 16)
+	}()
+	return queue
+}
+
+func statFile(f string, digest hash.Hash) (FileInfo, error) {
+	var fi FileInfo
+
 	r, err := os.Open(f)
 	if err != nil {
-		return 0, nil, err
+		return fi, err
 	}
 	defer func() {
 		r.Close()
@@ -113,11 +145,15 @@ func statFile(f string, digest hash.Hash) (int64, []byte, error) {
 	}()
 
 	if _, err := io.Copy(digest, r); err != nil {
-		return 0, nil, err
+		return fi, err
 	}
 	s, err := r.Stat()
 	if err != nil {
-		return 0, nil, err
+		return fi, err
 	}
-	return s.Size(), digest.Sum(nil), nil
+
+	fi.File = f
+	fi.Size = s.Size()
+	fi.Hash = append(fi.Hash, digest.Sum(nil)...)
+	return fi, nil
 }
