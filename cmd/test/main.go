@@ -21,6 +21,7 @@ func main() {
 	var (
 		matching  = flag.Bool("m", false, "matching")
 		compiling = flag.Bool("c", false, "compiling")
+		fast      = flag.Bool("f", false, "fast")
 		csv       = flag.Bool("p", false, "csv")
 	)
 	flag.Parse()
@@ -36,7 +37,7 @@ func main() {
 		for i := 1; i < flag.NArg(); i++ {
 			args[i-1] = flag.Arg(i)
 		}
-		err = runGlob(flag.Arg(0), args, *csv)
+		err = runGlob(flag.Arg(0), args, *fast, *csv)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -75,28 +76,34 @@ type FileInfo struct {
 	Err  error
 }
 
-func runGlob(pattern string, base []string, csv bool) error {
+func runGlob(pattern string, base []string, fast, csv bool) error {
 	var option linewriter.Option
 	if csv {
 		option = linewriter.AsCSV(false)
 	} else {
-		option = linewriter.WithPadding([]byte(" "))
+		if !fast {
+			option = linewriter.WithPadding([]byte(" "))
+		} else {
+			option = linewriter.WithPadding([]byte(""))
+		}
 	}
 	g, err := glob.New(pattern, base...)
 	if err != nil {
 		return err
 	}
 	var (
-		total  float64
-		files  uint
-		line   = linewriter.NewWriter(4096, option)
+		total float64
+		files uint
+		line  = linewriter.NewWriter(4096, option)
 	)
-	for fi := range gatherInfos(g) {
+	for fi := range gatherInfos(g, fast) {
 		if fi.Err != nil {
 			return fi.Err
 		}
-		line.AppendSize(fi.Size, 10, linewriter.SizeIEC)
-		line.AppendBytes(fi.Hash, 16, linewriter.Hex)
+		if !fast {
+			line.AppendSize(fi.Size, 10, linewriter.SizeIEC)
+			line.AppendBytes(fi.Hash, 16, linewriter.Hex)
+		}
 		line.AppendString(fi.File, 0, linewriter.AlignLeft)
 		if _, err := io.Copy(os.Stdout, line); err != nil && !errors.Is(err, io.EOF) {
 			return err
@@ -108,20 +115,20 @@ func runGlob(pattern string, base []string, csv bool) error {
 	return nil
 }
 
-func gatherInfos(g *glob.Glob) <-chan FileInfo {
+func gatherInfos(g *glob.Glob, fast bool) <-chan FileInfo {
 	queue := make(chan FileInfo)
 	go func() {
 		defer close(queue)
 		var (
-			ctx  = context.TODO()
-			sema = semaphore.NewWeighted(16)
+			ctx    = context.TODO()
+			sema   = semaphore.NewWeighted(16)
 			digest = xxh.New64(0)
 		)
 		for f := g.Glob(); f != ""; f = g.Glob() {
 			sema.Acquire(ctx, 1)
 			go func(file string) {
 				defer sema.Release(1)
-				fi, err := statFile(file, digest)
+				fi, err := statFile(file, digest, fast)
 				fi.Err = err
 
 				queue <- fi
@@ -132,7 +139,7 @@ func gatherInfos(g *glob.Glob) <-chan FileInfo {
 	return queue
 }
 
-func statFile(f string, digest hash.Hash) (FileInfo, error) {
+func statFile(f string, digest hash.Hash, fast bool) (FileInfo, error) {
 	var fi FileInfo
 
 	r, err := os.Open(f)
@@ -144,8 +151,10 @@ func statFile(f string, digest hash.Hash) (FileInfo, error) {
 		digest.Reset()
 	}()
 
-	if _, err := io.Copy(digest, r); err != nil {
-		return fi, err
+	if !fast {
+		if _, err := io.Copy(digest, r); err != nil {
+			return fi, err
+		}
 	}
 	s, err := r.Stat()
 	if err != nil {
